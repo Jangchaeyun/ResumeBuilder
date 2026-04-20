@@ -37,4 +37,13 @@ public class GlobalExceptionHandler {
 		
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
 	}
+	
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+		Map<String, Object> response = new HashMap<>();
+		response.put("message", "Something went wrong. contact administrator");
+		response.put("errors", ex.getMessage());
+		
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+	}
 }

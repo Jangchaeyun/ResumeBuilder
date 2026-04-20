@@ -3,6 +3,7 @@ package com.sally.resumebuilderapi.service;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.sally.resumebuilderapi.document.User;
@@ -19,6 +20,9 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthService {
 	private final UserRepository userRepository;
 	
+	@Value("${app.base.url:http://localhost:8080}")
+	private String appBaseUrl;
+	
 	public AuthResponse register(RegisterRequest request) {
 		log.info("Inside AuthServic: register() {} ", request);
 		
@@ -30,9 +34,23 @@ public class AuthService {
 		
 		userRepository.save(newUser);
 		
+		sendVerificationEmail(newUser);
+		
 		return toResponse(newUser);
 	}
 	
+	
+	
+	private void sendVerificationEmail(User newUser) {
+		try {
+			String link = appBaseUrl;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to send verification email: " + e.getMessage());
+		}
+	}
+
+
+
 	private AuthResponse toResponse(User newUser) {
 		return AuthResponse.builder()
 				.id(newUser.getId())
