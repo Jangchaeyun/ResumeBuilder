@@ -19,8 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AuthService {
 	private final UserRepository userRepository;
+	private final EmailService emailService;
 	
-	@Value("${app.base.url:http://localhost:8080}")
+	@Value("${app.base.url}")
 	private String appBaseUrl;
 	
 	public AuthResponse register(RegisterRequest request) {
@@ -43,7 +44,40 @@ public class AuthService {
 	
 	private void sendVerificationEmail(User newUser) {
 		try {
-			String link = appBaseUrl;
+			String link = appBaseUrl + "/api/auth/verify-email?token=" + newUser.getVerificationToken();
+			String html = ""
+	                + "<div style='background-color:#f9fafb; padding:40px 0; font-family:Arial,sans-serif;'>"
+	                + "  <div style='max-width:480px; margin:0 auto; background:#ffffff; border-radius:12px; padding:30px; box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center;'>"
+	                
+	                + "    <h2 style='color:#111827; margin-bottom:20px;'>이메일 인증</h2>"
+	                
+	                + "    <p style='color:#374151; font-size:14px;'>"
+	                + newUser.getName() + "님, 가입해주셔서 감사합니다 😊<br>"
+	                + "아래 버튼을 눌러 이메일 인증을 완료해주세요."
+	                + "    </p>"
+	                
+	                + "    <a href='" + link + "'"
+	                + "       style='display:inline-block; margin-top:20px; padding:12px 20px; "
+	                + "              background:#6366f1; color:#ffffff; font-size:14px; "
+	                + "              border-radius:8px; text-decoration:none; font-weight:bold;'>"
+	                + "        이메일 인증하기"
+	                + "    </a>"
+	                
+	                + "    <p style='margin-top:25px; font-size:12px; color:#6b7280;'>"
+	                + "        버튼이 동작하지 않는다면 아래 링크를 복사해주세요."
+	                + "    </p>"
+	                
+	                + "    <p style='word-break:break-all; font-size:12px; color:#4b5563;'>"
+	                + link
+	                + "    </p>"
+	                
+	                + "    <p style='margin-top:20px; font-size:12px; color:#9ca3af;'>"
+	                + "        이 링크는 24시간 동안 유효합니다."
+	                + "    </p>"
+	                
+	                + "  </div>"
+	                + "</div>";
+			emailService.sendHtmlEmail(newUser.getEmail(), "이메일을 인증하세요", html);
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to send verification email: " + e.getMessage());
 		}
@@ -76,5 +110,19 @@ public class AuthService {
 			.verificationExpires(LocalDateTime.now().plusHours(24))
 			.build();
 		
+	}
+	
+	public void verifyEmail(String token) {
+		User user =  userRepository.findByVerificationToken(token)
+			.orElseThrow(() -> new RuntimeException("Invalid or expired verification token"));
+		
+		if (user.getVerificationExpires() != null && user.getVerificationExpires().isBefore(LocalDateTime.now())) {
+			throw new RuntimeException("Verification token has expired. Please request new one.");
+		}
+		
+		user.setEmailVerified(true);
+		user.setVerificationToken(null);
+		user.setVerificationExpires(null);
+		userRepository.save(user);
 	}
 }
