@@ -43,6 +43,7 @@ public class AuthService {
 	
 	
 	private void sendVerificationEmail(User newUser) {
+		log.info("Inside AuthService - sendVerificationEmail(): {}", newUser);
 		try {
 			String link = appBaseUrl + "/api/auth/verify-email?token=" + newUser.getVerificationToken();
 			String html = ""
@@ -79,6 +80,7 @@ public class AuthService {
 	                + "</div>";
 			emailService.sendHtmlEmail(newUser.getEmail(), "이메일을 인증하세요", html);
 		} catch (Exception e) {
+			log.error("Exception occured at sendVerificationEmail(): {}", e.getMessage());
 			throw new RuntimeException("Failed to send verification email: " + e.getMessage());
 		}
 	}
@@ -113,6 +115,7 @@ public class AuthService {
 	}
 	
 	public void verifyEmail(String token) {
+		log.info("Inside AuthService: verifyEmail(): {}", token);
 		User user =  userRepository.findByVerificationToken(token)
 			.orElseThrow(() -> new RuntimeException("Invalid or expired verification token"));
 		

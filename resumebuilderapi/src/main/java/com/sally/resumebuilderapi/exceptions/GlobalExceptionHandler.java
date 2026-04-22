@@ -10,11 +10,15 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import lombok.extern.slf4j.Slf4j;
+
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Map<String, Object>> handleValidationException(MethodArgumentNotValidException ex) {
+		log.info("Inside GlobalExceptionHandler - handleValidationExceptions()");
 		Map<String, String> errors = new HashMap<>();
 		ex.getBindingResult().getAllErrors().forEach(error -> {
 			String fieldName = ((FieldError)error).getField();
@@ -40,6 +44,7 @@ public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+		log.info("Inside GlobalExceptionHandler - handleGenericException()");
 		Map<String, Object> response = new HashMap<>();
 		response.put("message", "Something went wrong. contact administrator");
 		response.put("errors", ex.getMessage());
