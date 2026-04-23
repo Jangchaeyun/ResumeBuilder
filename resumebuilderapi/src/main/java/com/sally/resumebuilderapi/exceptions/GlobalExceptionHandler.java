@@ -35,6 +35,7 @@ public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(ResourceExistsException.class)
 	public ResponseEntity<Map<String, Object>> handleResourceExistsException(ResourceExistsException ex) {
+		log.info("Inside GlobalExceptionHandler - handleResourceExistsException()");
 		Map<String, Object> response = new HashMap<>();
 		response.put("message", "Resource exits");
 		response.put("errors", ex.getMessage());
