@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.sally.resumebuilderapi.dto.AuthResponse;
+import com.sally.resumebuilderapi.dto.LoginRequest;
 import com.sally.resumebuilderapi.dto.RegisterRequest;
 import com.sally.resumebuilderapi.service.AuthService;
 import com.sally.resumebuilderapi.service.FileUploadService;
@@ -48,9 +49,15 @@ public class AuthController {
 		return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "Email verified successfully"));
 	}
 	
-	@PostMapping("/upload-image")
+	@PostMapping(ApiConstants.UPLOAD_PROFILE)
 	public ResponseEntity<?> uploadImage(@RequestPart("image") MultipartFile file) throws IOException {
+		log.info("Inside AuthController - uploadImage()");
 		Map<String, String> response = fileUploadService.uploadSingleImage(file);
 		return ResponseEntity.ok(response);
+	}
+	
+	@PostMapping("/login")
+	public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+		
 	}
 }

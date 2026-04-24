@@ -4,10 +4,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.sally.resumebuilderapi.document.User;
 import com.sally.resumebuilderapi.dto.AuthResponse;
+import com.sally.resumebuilderapi.dto.LoginRequest;
 import com.sally.resumebuilderapi.dto.RegisterRequest;
 import com.sally.resumebuilderapi.repository.UserRepository;
 
@@ -20,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthService {
 	private final UserRepository userRepository;
 	private final EmailService emailService;
+	private final PasswordEncoder passwordEncoder;
 	
 	@Value("${app.base.url}")
 	private String appBaseUrl;
@@ -104,7 +108,7 @@ public class AuthService {
 		 return User.builder()
 			.name(request.getName())
 			.email(request.getEmail())
-			.password(request.getPassword())
+			.password(passwordEncoder.encode(request.getPassword()))
 			.profileImageUrl(request.getProfileImageUrl())
 			.subscriptionPlan("Basic")
 			.emailVerified(false)
@@ -127,5 +131,10 @@ public class AuthService {
 		user.setVerificationToken(null);
 		user.setVerificationExpires(null);
 		userRepository.save(user);
+	}
+	
+	public AuthResponse login(LoginRequest request) {
+		User existingUser = userRepository.findByEmail(request.getEmail())
+			.orElseThrow(() -> new UsernameNotFoundException("Invalid email or password"));
 	}
 }
