@@ -13,6 +13,7 @@ import com.sally.resumebuilderapi.dto.AuthResponse;
 import com.sally.resumebuilderapi.dto.LoginRequest;
 import com.sally.resumebuilderapi.dto.RegisterRequest;
 import com.sally.resumebuilderapi.repository.UserRepository;
+import com.sally.resumebuilderapi.util.JwtUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class AuthService {
 	private final UserRepository userRepository;
 	private final EmailService emailService;
 	private final PasswordEncoder passwordEncoder;
+	private final JwtUtil jwtUtil;
 	
 	@Value("${app.base.url}")
 	private String appBaseUrl;
@@ -136,5 +138,19 @@ public class AuthService {
 	public AuthResponse login(LoginRequest request) {
 		User existingUser = userRepository.findByEmail(request.getEmail())
 			.orElseThrow(() -> new UsernameNotFoundException("Invalid email or password"));
+		
+		if (!passwordEncoder.matches(request.getPassword(), existingUser.getPassword())) {
+			throw new UsernameNotFoundException("Please verify your email before loggin in.");
+		}
+		
+		if (!existingUser.isEmailVerified()) {
+			throw new RuntimeException("Please verify your email before logging in.");
+		}
+		
+		String token = jwtUtil.generateToken(existingUser.getId());
+		
+		AuthResponse response = toResponse(existingUser);
+		response.setToken(token);
+		return response;
 	}
 }
