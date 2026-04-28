@@ -2,6 +2,7 @@ package com.sally.resumebuilderapi.controller;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.boot.actuate.autoconfigure.observation.ObservationProperties.Http;
 import org.springframework.http.HttpStatus;
@@ -56,14 +57,22 @@ public class AuthController {
 		return ResponseEntity.ok(response);
 	}
 	
-	@PostMapping("/login")
+	@PostMapping(ApiConstants.LOGIN)
 	public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
 		AuthResponse response = authService.login(request);
 		return ResponseEntity.ok(response);
 	}
 	
-	@GetMapping("/auth/validate")
-	public String testValidationToken() {
-		return "Token validation is working";
+	@PostMapping(ApiConstants.RESEND_VERIFICATION)
+	public ResponseEntity<?> resendVerification(@RequestBody Map<String, String> body) {
+		String email = body.get("email");
+		
+		if (Objects.isNull(email)) {
+			return ResponseEntity.badRequest().body(Map.of("message", "Email is required"));
+		}
+		
+		authService.resendVerification(email);
+		
+		return ResponseEntity.ok(Map.of("success", true, "message", "Verification email sent"));
 	}
 }
