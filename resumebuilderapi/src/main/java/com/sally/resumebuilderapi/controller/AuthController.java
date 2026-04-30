@@ -85,6 +85,5 @@ public class AuthController {
 		AuthResponse currentProfile = authService.getProfile(principalObject);
 		
 		return ResponseEntity.ok(currentProfile);
-		
 	}
 }
