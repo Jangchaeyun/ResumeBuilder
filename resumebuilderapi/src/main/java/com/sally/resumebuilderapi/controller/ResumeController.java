@@ -1,7 +1,10 @@
 package com.sally.resumebuilderapi.controller;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.sally.resumebuilderapi.document.Resume;
-import com.sally.resumebuilderapi.dto.CreateResimeRequest;
+import com.sally.resumebuilderapi.dto.CreateResumeRequest;
 import com.sally.resumebuilderapi.service.ResumeService;
 import com.sally.resumebuilderapi.util.ApiConstants;
 
@@ -31,26 +34,34 @@ public class ResumeController {
 	private final ResumeService resumeService;
 	
 	@PostMapping
-	public ResponseEntity<?> createResume(@Valid @RequestBody CreateResimeRequest request) {
-		Resume newResume = resumeService.createResume(request);
+	public ResponseEntity<?> createResume(@Valid @RequestBody CreateResumeRequest request,
+			Authentication authentication) {
+		Resume newResume = resumeService.createResume(request, authentication.getPrincipal());
 		
 		return ResponseEntity.status(HttpStatus.CREATED).body(newResume);
 	}
 	
 	@GetMapping
-	public ResponseEntity<?> getUserResumes() {
+	public ResponseEntity<?> getUserResumes(Authentication authentication) {
+		List<Resume> resumes = resumeService.getUserResumes(authentication.getPrincipal());
 		
+		return ResponseEntity.ok(resumes);
 	}
 	
 	@GetMapping(ApiConstants.ID)
-	public ResponseEntity<?> getResumeById(@PathVariable String id) {
+	public ResponseEntity<?> getResumeById(@PathVariable String id, Authentication authentication) {
+		Resume existingResume = resumeService.getResumeById(id, authentication.getPrincipal());
 		
+		return ResponseEntity.ok(existingResume);
 	}
 	
 	@PutMapping(ApiConstants.ID)
 	public ResponseEntity<?> updateResume(@PathVariable String id,
-											@RequestBody Resume updatedDate) {
+											@RequestBody Resume updatedData,
+											Authentication authentication) {
+		Resume updatedResume = resumeService.updateResume(id, updatedData, authentication.getPrincipal());
 		
+		return ResponseEntity.ok(updatedResume);
 	}
 	
 	@PutMapping(ApiConstants.UPLOAD_IMAGES)
@@ -58,11 +69,11 @@ public class ResumeController {
 			@RequestPart(value = "thumbnail", required = true) MultipartFile thumbnail,
 			@RequestPart(value = "profileImage", required = false) MultipartFile profileImage,
 			HttpServletRequest request) {
-		
+		return null;
 	}
 	
 	@DeleteMapping(ApiConstants.ID)
 	public ResponseEntity<?> deleteResume(@PathVariable String id) {
-		
+		return null;
 	}
 }
