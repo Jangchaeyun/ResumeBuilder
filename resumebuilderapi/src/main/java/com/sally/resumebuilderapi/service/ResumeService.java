@@ -89,5 +89,13 @@ public class ResumeService {
 		
 		return existingResume;
 	}
+
+	public void deleteResume(String resumeId, Object principal) {
+		AuthResponse response = authService.getProfile(principal);
+		
+		Resume existingResume = resumeRepository.findByUserIdAndId(response.getId(), resumeId)
+			.orElseThrow(() -> new RuntimeException("Resume not found"));
+		resumeRepository.delete(existingResume);
+	}
 	
 }

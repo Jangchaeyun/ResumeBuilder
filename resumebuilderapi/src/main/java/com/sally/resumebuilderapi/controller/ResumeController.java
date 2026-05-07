@@ -1,5 +1,6 @@
 package com.sally.resumebuilderapi.controller;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -62,23 +63,27 @@ public class ResumeController {
 	public ResponseEntity<?> updateResume(@PathVariable String id,
 											@RequestBody Resume updatedData,
 											Authentication authentication) {
+		Resume updatedResume = resumeService.updateResume(id, updatedData, authentication.getPrincipal());
 		
 		return ResponseEntity.ok(updatedResume);
 	}
 	
 	@PutMapping(ApiConstants.UPLOAD_IMAGES)
 	public ResponseEntity<?> uploadResumeImages(@PathVariable String id,
-			@RequestPart(value = "thumbnail", required = true) MultipartFile thumbnail,
+			@RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail,
 			@RequestPart(value = "profileImage", required = false) MultipartFile profileImage,
 			HttpServletRequest request,
-			Authentication authentication) {
+			Authentication authentication) throws IOException {
 		Map<String, String> response = fileUploadService.uploadSingleImage(id, authentication.getPrincipal(), thumbnail, profileImage);
 			
 		return ResponseEntity.ok(response);
 	}
 	
 	@DeleteMapping(ApiConstants.ID)
-	public ResponseEntity<?> deleteResume(@PathVariable String id) {
-		return null;
+	public ResponseEntity<?> deleteResume(@PathVariable String id,
+			Authentication authentication) {
+		resumeService.deleteResume(id, authentication.getPrincipal());
+		
+		return ResponseEntity.ok(Map.of("message", "Resume deleted successfully"));
 	}
 }
