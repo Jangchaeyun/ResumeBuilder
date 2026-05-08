@@ -11,4 +11,5 @@ public class ApiConstants {
 	public static final String RESUME = "/api/resume";
 	public static final String ID = "/{id}";
 	public static final String UPLOAD_IMAGES = "/{id}/upload-images";
+	public static final String PREMIUM = "premium";
 }
