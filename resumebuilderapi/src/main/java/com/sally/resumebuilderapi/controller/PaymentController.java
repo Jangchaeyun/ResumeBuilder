@@ -1,6 +1,8 @@
 package com.sally.resumebuilderapi.controller;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -46,16 +48,61 @@ public class PaymentController {
 	
 	@PostMapping("/verify")
 	public ResponseEntity<?> verifyPayment(@RequestBody Map<String, String> request) {
-		return null;
+		try {
+
+	        String paymentKey = (String) request.get("paymentKey");
+	        String orderId = (String) request.get("orderId");
+	        Long amount = Long.parseLong(request.get("amount"));
+
+	        if (Objects.isNull(paymentKey)
+	                || Objects.isNull(orderId)
+	                || Objects.isNull(amount)) {
+
+	            return ResponseEntity.badRequest().body(
+	                    Map.of(
+	                            "message",
+	                            "Missing required payment parameters"
+	                    )
+	            );
+	        }
+
+	        Payment payment = paymentService.verifyPayment(
+	                paymentKey,
+	                orderId,
+	                amount
+	        );
+
+	        return ResponseEntity.ok(
+	                Map.of(
+	                        "message", "Payment verified successfully",
+	                        "status", "success",
+	                        "payment", payment
+	                )
+	        );
+
+	    } catch (Exception e) {
+
+	        log.error("Payment verify failed", e);
+
+	        return ResponseEntity.badRequest().body(
+	                Map.of(
+	                        "message", e.getMessage()
+	                )
+	        );
+	    }
 	}
 	
 	@GetMapping("/history")
 	public ResponseEntity<?> getPaymentHistory(Authentication authentication) {
-		return null;
+		List<Payment> payments = paymentService.getUserPayments(authentication.getPrincipal());
+		
+		return ResponseEntity.ok(payments);
 	}
 	
 	@GetMapping("/order/{orderId}")
 	public ResponseEntity<?> getOrderDetails(@PathVariable String orderId) {
-		return null;
+		Payment paymentDetails = paymentService.getPaymentDetails(orderId);
+		
+		return ResponseEntity.ok(paymentDetails);
 	}
 }
