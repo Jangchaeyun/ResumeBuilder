@@ -29,4 +29,8 @@ public class EmailService {
 		helper.setText(htmlContent, true);
 		mailSender.send(message);
 	}
+	
+	public void sendEmailWithAttachment(String to, String subject, String body, byte[] attachment, String filename) {
+		
+	}
 }
