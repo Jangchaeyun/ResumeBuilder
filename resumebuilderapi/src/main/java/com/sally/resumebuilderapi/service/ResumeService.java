@@ -77,6 +77,7 @@ public class ResumeService {
 		existingResume.setThumbnailLink(updatedData.getThumbnailLink());
 		existingResume.setTemplate(updatedData.getTemplate());
 		existingResume.setProfileInfo(updatedData.getProfileInfo());
+		existingResume.setContactInfo(updatedData.getContactInfo());
 		existingResume.setWorkExperiences(updatedData.getWorkExperiences());
 		existingResume.setEducations(updatedData.getEducations());
 		existingResume.setSkills(updatedData.getSkills());

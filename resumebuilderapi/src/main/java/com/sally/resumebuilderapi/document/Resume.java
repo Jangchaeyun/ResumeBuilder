@@ -59,7 +59,11 @@ public class Resume {
 	@LastModifiedDate
 	private LocalDateTime updatedAt;
 	
-	private static class Template {
+	@Data
+	@AllArgsConstructor
+	@NoArgsConstructor
+	@Builder
+	public static class Template {
 		private String theme;
 		private List<String> colorPlette;
 	}
