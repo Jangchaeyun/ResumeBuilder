@@ -9,7 +9,11 @@ import {
   useState,
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { EducationEntryFields } from '../components/EducationEntryFields'
+import { ProjectEntryFields } from '../components/ProjectEntryFields'
+import { ResumePreviewDocument } from '../components/ResumePreviewDocument'
 import { apiFetch, normalizeResume, parseApiError } from '../lib/api'
+import { downloadResumePdf, exportResumePdfBlob, sanitizeResumeFilename } from '../lib/exportResumePdf'
 import { getTemplateCatalogEntry } from '../data/templateCatalog'
 import type {
   Certification,
@@ -66,7 +70,9 @@ export function ResumeEditorPage() {
   const [saving, setSaving] = useState(false)
   const [savedTick, setSavedTick] = useState(0)
   const skipNextSave = useRef(false)
+  const previewRef = useRef<HTMLDivElement>(null)
   const [templateAccess, setTemplateAccess] = useState<TemplatesResponse | null>(null)
+  const [pdfPending, setPdfPending] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -202,20 +208,45 @@ export function ResumeEditorPage() {
   const [mailFile, setMailFile] = useState<File | null>(null)
   const [mailPending, setMailPending] = useState(false)
 
+  async function onDownloadPdf() {
+    if (!previewRef.current || !resume) return
+    setPdfPending(true)
+    setError(null)
+    try {
+      const name = `${sanitizeResumeFilename(resume.title)}.pdf`
+      await downloadResumePdf(previewRef.current, name)
+    } catch {
+      setError('PDF 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setPdfPending(false)
+    }
+  }
+
   async function onSendMail(e: FormEvent) {
     e.preventDefault()
-    if (!mailTo || !mailFile) {
-      setError('수신 이메일과 PDF 파일을 입력해 주세요.')
+    if (!mailTo) {
+      setError('수신 이메일을 입력해 주세요.')
       return
     }
     setMailPending(true)
     setError(null)
     try {
+      let pdfFile = mailFile
+      if (!pdfFile) {
+        if (!previewRef.current || !resume) {
+          setError('PDF를 생성할 수 없습니다. 미리보기를 확인해 주세요.')
+          return
+        }
+        const blob = await exportResumePdfBlob(previewRef.current)
+        pdfFile = new File([blob], `${sanitizeResumeFilename(resume.title)}.pdf`, {
+          type: 'application/pdf',
+        })
+      }
       const fd = new FormData()
       fd.append('recipientEmail', mailTo)
       fd.append('subject', mailSubject)
       fd.append('message', mailBody)
-      fd.append('pdffile', mailFile)
+      fd.append('pdffile', pdfFile)
       const res = await apiFetch('/api/email/send-resume', { method: 'POST', body: fd })
       if (!res.ok) throw new Error(await parseApiError(res))
       setMailOpen(false)
@@ -263,6 +294,14 @@ export function ResumeEditorPage() {
           <button type="button" className="btn btn--outline btn--sm" onClick={() => void saveNow(resume)}>
             즉시 저장
           </button>
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            disabled={pdfPending}
+            onClick={() => void onDownloadPdf()}
+          >
+            {pdfPending ? 'PDF 생성 중…' : 'PDF 저장'}
+          </button>
           <button type="button" className="btn btn--secondary btn--sm" onClick={() => setMailOpen(true)}>
             PDF 메일 보내기
           </button>
@@ -271,7 +310,8 @@ export function ResumeEditorPage() {
 
       {error ? <div className="alert alert--error">{error}</div> : null}
 
-      <div className="editor-grid">
+      <div className="editor-layout">
+        <div className="editor-grid">
         <section className="panel">
           <h2 className="panel__title">프로필</h2>
           <div className="profile-row">
@@ -291,17 +331,22 @@ export function ResumeEditorPage() {
             })} />
           </label>
           <label className="field">
-            <span>직함</span>
-            <input value={pi.designation ?? ''} onChange={(e) => patch((d) => {
-              d.profileInfo = d.profileInfo ?? {}
-              d.profileInfo.designation = e.target.value
-            })} />
+            <span>희망 직무</span>
+            <input
+              value={pi.designation ?? ''}
+              placeholder="예: 백엔드 개발자"
+              onChange={(e) => patch((d) => {
+                d.profileInfo = d.profileInfo ?? {}
+                d.profileInfo.designation = e.target.value
+              })}
+            />
           </label>
           <label className="field">
-            <span>요약</span>
+            <span>자기소개</span>
             <textarea
               rows={4}
               value={pi.summary ?? ''}
+              placeholder="경력·강점·지원 동기를 간단히 적어 주세요."
               onChange={(e) => patch((d) => {
                 d.profileInfo = d.profileInfo ?? {}
                 d.profileInfo.summary = e.target.value
@@ -328,20 +373,6 @@ export function ResumeEditorPage() {
               })} />
             </label>
             <label className="field">
-              <span>위치</span>
-              <input value={ci.location ?? ''} onChange={(e) => patch((d) => {
-                d.contactInfo = d.contactInfo ?? {}
-                d.contactInfo.location = e.target.value
-              })} />
-            </label>
-            <label className="field">
-              <span>LinkedIn</span>
-              <input value={ci.linkedIn ?? ''} onChange={(e) => patch((d) => {
-                d.contactInfo = d.contactInfo ?? {}
-                d.contactInfo.linkedIn = e.target.value
-              })} />
-            </label>
-            <label className="field">
               <span>GitHub</span>
               <input value={ci.github ?? ''} onChange={(e) => patch((d) => {
                 d.contactInfo = d.contactInfo ?? {}
@@ -349,11 +380,26 @@ export function ResumeEditorPage() {
               })} />
             </label>
             <label className="field">
-              <span>웹사이트</span>
-              <input value={ci.website ?? ''} onChange={(e) => patch((d) => {
-                d.contactInfo = d.contactInfo ?? {}
-                d.contactInfo.website = e.target.value
-              })} />
+              <span>포트폴리오</span>
+              <input
+                value={ci.website ?? ''}
+                placeholder="https://..."
+                onChange={(e) => patch((d) => {
+                  d.contactInfo = d.contactInfo ?? {}
+                  d.contactInfo.website = e.target.value
+                })}
+              />
+            </label>
+            <label className="field">
+              <span>기술 블로그</span>
+              <input
+                value={ci.techBlog ?? ''}
+                placeholder="Velog, Tistory, Medium 등"
+                onChange={(e) => patch((d) => {
+                  d.contactInfo = d.contactInfo ?? {}
+                  d.contactInfo.techBlog = e.target.value
+                })}
+              />
             </label>
           </div>
         </section>
@@ -496,7 +542,15 @@ export function ResumeEditorPage() {
           onChange={(items) => patch((d) => {
             d.workExperiences = items
           })}
-          empty={() => ({ company: '', role: '', startDate: '', endDate: '', description: '' })}
+          empty={() => ({
+            company: '',
+            role: '',
+            startDate: '',
+            endDate: '',
+            technologies: '',
+            highlights: '',
+            description: '',
+          })}
           render={(wx, i, upd) => (
             <div className="stack" key={i}>
               <div className="field-grid">
@@ -509,17 +563,39 @@ export function ResumeEditorPage() {
                   <input value={wx.role ?? ''} onChange={(e) => upd({ ...wx, role: e.target.value })} />
                 </label>
                 <label className="field">
-                  <span>시작</span>
+                  <span>입사년월</span>
                   <input value={wx.startDate ?? ''} onChange={(e) => upd({ ...wx, startDate: e.target.value })} />
                 </label>
                 <label className="field">
-                  <span>종료</span>
+                  <span>퇴사년월</span>
                   <input value={wx.endDate ?? ''} onChange={(e) => upd({ ...wx, endDate: e.target.value })} />
                 </label>
               </div>
               <label className="field">
-                <span>설명</span>
-                <textarea rows={3} value={wx.description ?? ''} onChange={(e) => upd({ ...wx, description: e.target.value })} />
+                <span>사용 기술</span>
+                <input
+                  value={wx.technologies ?? ''}
+                  placeholder="Java, Spring Boot, PostgreSQL (쉼표로 구분)"
+                  onChange={(e) => upd({ ...wx, technologies: e.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>주요 성과</span>
+                <textarea
+                  rows={3}
+                  value={wx.highlights ?? ''}
+                  placeholder={'한 줄에 하나씩 적어 주세요.\n예: API 응답 시간 40% 개선'}
+                  onChange={(e) => upd({ ...wx, highlights: e.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>업무 설명</span>
+                <textarea
+                  rows={3}
+                  value={wx.description ?? ''}
+                  placeholder="담당 업무와 기여 내용"
+                  onChange={(e) => upd({ ...wx, description: e.target.value })}
+                />
               </label>
             </div>
           )}
@@ -531,31 +607,24 @@ export function ResumeEditorPage() {
           onChange={(items) => patch((d) => {
             d.educations = items
           })}
-          empty={() => ({ degree: '', institution: '', startDate: '', endDate: '' })}
-          render={(ed, i, upd) => (
-            <div className="field-grid" key={i}>
-              <label className="field">
-                <span>학위</span>
-                <input value={ed.degree ?? ''} onChange={(e) => upd({ ...ed, degree: e.target.value })} />
-              </label>
-              <label className="field">
-                <span>학교</span>
-                <input value={ed.institution ?? ''} onChange={(e) => upd({ ...ed, institution: e.target.value })} />
-              </label>
-              <label className="field">
-                <span>시작</span>
-                <input value={ed.startDate ?? ''} onChange={(e) => upd({ ...ed, startDate: e.target.value })} />
-              </label>
-              <label className="field">
-                <span>종료</span>
-                <input value={ed.endDate ?? ''} onChange={(e) => upd({ ...ed, endDate: e.target.value })} />
-              </label>
-            </div>
-          )}
+          empty={() => ({
+            level: '대학·대학원 이상 졸업',
+            schoolType: '',
+            status: '',
+            degree: '',
+            major: '',
+            institution: '',
+            transfer: false,
+            startDate: '',
+            endDate: '',
+            classType: '',
+            location: '',
+          })}
+          render={(ed, i, upd) => <EducationEntryFields key={i} value={ed} onChange={upd} />}
         />
 
         <ListSection<Skill>
-          title="스킬"
+          title="기술 스택"
           items={resume.skills ?? []}
           onChange={(items) => patch((d) => {
             d.skills = items
@@ -564,8 +633,12 @@ export function ResumeEditorPage() {
           render={(sk, i, upd) => (
             <div className="field-grid" key={i}>
               <label className="field">
-                <span>이름</span>
-                <input value={sk.name ?? ''} onChange={(e) => upd({ ...sk, name: e.target.value })} />
+                <span>기술명</span>
+                <input
+                  value={sk.name ?? ''}
+                  placeholder="예: TypeScript, React"
+                  onChange={(e) => upd({ ...sk, name: e.target.value })}
+                />
               </label>
               <label className="field">
                 <span>숙련도 ({sk.progress ?? 0})</span>
@@ -587,29 +660,8 @@ export function ResumeEditorPage() {
           onChange={(items) => patch((d) => {
             d.projects = items
           })}
-          empty={() => ({ title: '', description: '', github: '', liveDemo: '' })}
-          render={(pj, i, upd) => (
-            <div className="stack" key={i}>
-              <label className="field">
-                <span>제목</span>
-                <input value={pj.title ?? ''} onChange={(e) => upd({ ...pj, title: e.target.value })} />
-              </label>
-              <label className="field">
-                <span>설명</span>
-                <textarea rows={2} value={pj.description ?? ''} onChange={(e) => upd({ ...pj, description: e.target.value })} />
-              </label>
-              <div className="field-grid">
-                <label className="field">
-                  <span>GitHub</span>
-                  <input value={pj.github ?? ''} onChange={(e) => upd({ ...pj, github: e.target.value })} />
-                </label>
-                <label className="field">
-                  <span>Live</span>
-                  <input value={pj.liveDemo ?? ''} onChange={(e) => upd({ ...pj, liveDemo: e.target.value })} />
-                </label>
-              </div>
-            </div>
-          )}
+          empty={() => ({ title: '', role: '', technologies: '', description: '', github: '', liveDemo: '' })}
+          render={(pj, i, upd) => <ProjectEntryFields key={i} value={pj} onChange={upd} />}
         />
 
         <ListSection<Certification>
@@ -626,7 +678,7 @@ export function ResumeEditorPage() {
                 <input value={c.title ?? ''} onChange={(e) => upd({ ...c, title: e.target.value })} />
               </label>
               <label className="field">
-                <span>발급</span>
+                <span>발행처/기관</span>
                 <input value={c.issuer ?? ''} onChange={(e) => upd({ ...c, issuer: e.target.value })} />
               </label>
               <label className="field">
@@ -638,7 +690,7 @@ export function ResumeEditorPage() {
         />
 
         <ListSection<Language>
-          title="언어"
+          title="외국어"
           items={resume.languages ?? []}
           onChange={(items) => patch((d) => {
             d.languages = items
@@ -647,8 +699,12 @@ export function ResumeEditorPage() {
           render={(lg, i, upd) => (
             <div className="field-grid" key={i}>
               <label className="field">
-                <span>언어</span>
-                <input value={lg.name ?? ''} onChange={(e) => upd({ ...lg, name: e.target.value })} />
+                <span>언어명</span>
+                <input
+                  value={lg.name ?? ''}
+                  placeholder="예: 영어, 일본어"
+                  onChange={(e) => upd({ ...lg, name: e.target.value })}
+                />
               </label>
               <label className="field">
                 <span>능숙도 ({lg.progress ?? 0})</span>
@@ -665,7 +721,10 @@ export function ResumeEditorPage() {
         />
 
         <section className="panel">
-          <h2 className="panel__title">관심사</h2>
+          <h2 className="panel__title">관심 분야</h2>
+          <p className="muted small template-picker__intro">
+            오픈소스, 커뮤니티, 해커톤 등 관심 활동을 태그로 적어 주세요.
+          </p>
           <label className="field">
             <span>태그 (쉼표로 구분)</span>
             <input
@@ -679,13 +738,26 @@ export function ResumeEditorPage() {
             />
           </label>
         </section>
+        </div>
+
+        <aside className="editor-preview" aria-label="이력서 미리보기">
+          <div className="editor-preview__head">
+            <h2 className="editor-preview__title">미리보기</h2>
+            <p className="muted small">PDF 저장·메일 첨부에 이 화면이 사용됩니다.</p>
+          </div>
+          <div className="editor-preview__frame">
+            <ResumePreviewDocument ref={previewRef} resume={resume} />
+          </div>
+        </aside>
       </div>
 
       {mailOpen ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setMailOpen(false)}>
           <div className="modal" role="dialog" onMouseDown={(e) => e.stopPropagation()}>
             <h2>PDF 메일 보내기</h2>
-            <p className="muted small">백엔드 SMTP 설정이 되어 있어야 전송됩니다.</p>
+            <p className="muted small">
+              백엔드 SMTP 설정이 되어 있어야 전송됩니다. PDF 파일을 비우면 미리보기에서 자동 생성합니다.
+            </p>
             <form className="form" onSubmit={onSendMail}>
               <label className="field">
                 <span>수신 이메일</span>
@@ -700,8 +772,8 @@ export function ResumeEditorPage() {
                 <textarea rows={3} value={mailBody} onChange={(e) => setMailBody(e.target.value)} />
               </label>
               <label className="field">
-                <span>PDF 파일</span>
-                <input type="file" accept="application/pdf" onChange={(e) => setMailFile(e.target.files?.[0] ?? null)} required />
+                <span>PDF 파일 (선택)</span>
+                <input type="file" accept="application/pdf" onChange={(e) => setMailFile(e.target.files?.[0] ?? null)} />
               </label>
               <div className="row row--end">
                 <button type="button" className="btn btn--ghost" onClick={() => setMailOpen(false)}>

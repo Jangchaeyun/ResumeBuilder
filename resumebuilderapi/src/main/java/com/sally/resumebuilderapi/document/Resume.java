@@ -90,6 +90,7 @@ public class Resume {
 		private String linkedIn;
 		private String github;
 		private String website;
+		private String techBlog;
 	}
 	
 	@Data
@@ -101,6 +102,8 @@ public class Resume {
 		private String role;
 		private String startDate;
 		private String endDate;
+		private String technologies;
+		private String highlights;
 		private String description;
 	}
 	
@@ -109,10 +112,17 @@ public class Resume {
 	@NoArgsConstructor
 	@Builder
 	public static class Education {
+		private String level;
+		private String schoolType;
+		private String status;
 		private String degree;
+		private String major;
 		private String institution;
+		private Boolean transfer;
 		private String startDate;
 		private String endDate;
+		private String classType;
+		private String location;
 	}
 	
 	@Data
@@ -130,6 +140,8 @@ public class Resume {
 	@Builder
 	public static class Project {
 		private String title;
+		private String role;
+		private String technologies;
 		private String description;
 		private String github;
 		private String liveDemo;
